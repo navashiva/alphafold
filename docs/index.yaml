@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  alphafold-gradio:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2021-12-23T22:13:14.24925Z"
+    description: A Helm chart for Google's Alphafold with Gradio interface
+    digest: 1c58e983775e97dffc9e571de735f06343ca1af05e7530c08290f23957bb62e5
+    name: alphafold-gradio
+    type: application
+    urls:
+    - https://navashiva.github.com/alphafold/alphafold-gradio-0.1.0.tgz
+    version: 0.1.0
+generated: "2021-12-23T22:13:14.246856Z"

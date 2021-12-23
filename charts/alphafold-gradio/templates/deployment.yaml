@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "alphafold-gradio.fullname" . }}
+  labels:
+    {{- include "alphafold-gradio.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "alphafold-gradio.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "alphafold-gradio.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "alphafold-gradio.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+        {{- if (and .Values.dataPersistence.enabled .Values.outputPersistence.enabled) }}
+        - name: {{ include "alphafold-gradio.fullname" . }}-data
+          persistentVolumeClaim:
+            claimName: {{ include "alphafold-gradio.fullname" . }}-data
+        - name: {{ include "alphafold-gradio.fullname" . }}-output
+          persistentVolumeClaim:
+            claimName: {{ include "alphafold-gradio.fullname" . }}-output
+        {{- end }}
+      initContainers:
+        - name: {{ .Chart.Name }}-download
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: IfNotPresent
+          {{- if eq .Values.database.type "full" }}
+          command: ["sh", "-c","if [ $(find $DATA_DIR -mindepth 1 -maxdepth 1 -type d | wc -l) -gt 8 ]; then echo 'Nothing to download. Data directory is already in place.' && exit 0; else /app/alphafold/scripts/download_all_data.sh $DATA_DIR; fi;"]
+          {{- end }}
+          {{- if eq .Values.database.type "reduced" }}
+          command: [ "sh", "-c","if [ $(find $DATA_DIR -mindepth 1 -maxdepth 1 -type d | wc -l) -gt 8 ]; then echo 'Nothing to download. Data directory is already in place.' && exit 0; else /app/alphafold/scripts/download_all_data.sh $DATA_DIR reduced_dbs; fi;" ]
+          {{- end }}
+          env:
+            - name: DATA_DIR
+              value: /app/data
+          volumeMounts:
+            {{- if .Values.dataPersistence.enabled }}
+            - name: {{ include "alphafold-gradio.fullname" . }}-data
+              mountPath: /app/data
+            {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: DATA_DIR
+              value: /app/data
+            - name: OUTPUT_DIR
+              value: /opt/conda/lib/python3.7/site-packages/gradio/templates/frontend/static/output
+            - name: TF_FORCE_UNIFIED_MEMORY
+              value: '1'
+            - name: XLA_PYTHON_CLIENT_MEM_FRACTION
+              value: '4.0'
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: 'all'
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+              {{- if .Values.dataPersistence.enabled }}
+              - name: {{ include "alphafold-gradio.fullname" . }}-data
+                mountPath: /app/data
+              {{- end }}
+              {{- if .Values.outputPersistence.enabled }}
+              - name: {{ include "alphafold-gradio.fullname" . }}-output
+                mountPath: /opt/conda/lib/python3.7/site-packages/gradio/templates/frontend/static/output
+              {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

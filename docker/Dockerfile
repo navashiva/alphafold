@@ -30,6 +30,8 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
       kalign \
       tzdata \
       wget \
+      aria2 \
+      rsync \
     && rm -rf /var/lib/apt/lists/*
 
 # Compile HHsuite from source.
@@ -65,12 +67,12 @@ RUN wget -q -P /app/alphafold/alphafold/common/ \
 # Install pip packages.
 RUN pip3 install --upgrade pip \
     && pip3 install -r /app/alphafold/requirements.txt \
-    && pip3 install --upgrade jax jaxlib==0.1.69+cuda${CUDA/./} -f \
+    && pip3 install --upgrade jaxlib==0.1.69+cuda${CUDA/./} -f \
       https://storage.googleapis.com/jax-releases/jax_releases.html
 
 # Apply OpenMM patch.
 WORKDIR /opt/conda/lib/python3.7/site-packages
-RUN patch -p0 < /app/alphafold/docker/openmm.patch
+RUN patch -p0 < /app/alphafold/docker/openmm.patch && cp /app/alphafold/imgs/zip_icon.jpg /opt/conda/lib/python3.7/site-packages/gradio/templates/frontend/static/media/zip_icon.jpg
 
 # We need to run `ldconfig` first to ensure GPUs are visible, due to some quirk
 # with Debian. See https://github.com/NVIDIA/nvidia-docker/issues/1399 for
@@ -80,6 +82,6 @@ RUN patch -p0 < /app/alphafold/docker/openmm.patch
 WORKDIR /app/alphafold
 RUN echo $'#!/bin/bash\n\
 ldconfig\n\
-python /app/alphafold/run_alphafold.py "$@"' > /app/run_alphafold.sh \
-  && chmod +x /app/run_alphafold.sh
-ENTRYPOINT ["/app/run_alphafold.sh"]
+python /app/alphafold/gradio-interface.py' > /app/run_gradio.sh \
+  && chmod +x /app/run_gradio.sh
+ENTRYPOINT ["/app/run_gradio.sh"]
