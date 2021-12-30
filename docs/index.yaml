@@ -9,6 +9,6 @@ entries:
     name: alphafold-gradio
     type: application
     urls:
-    - https://navashiva.github.com/alphafold/alphafold-gradio-0.1.0.tgz
+    - https://navashiva.github.io/alphafold/alphafold-gradio-0.1.0.tgz
     version: 0.1.0
 generated: "2021-12-23T22:13:14.246856Z"
